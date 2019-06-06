@@ -25,11 +25,10 @@
 #include <stdbool.h>
 #include "freertos/FreeRTOS.h"
 #include "esp_err.h"
-#include "esp_intr.h"
+#include "esp_intr_alloc.h"
 #include "esp_attr.h"
 #include "soc/dport_reg.h"
 #include "sdkconfig.h"
-#include "esp32/dport_access.h"
 
 void esp_cache_err_int_init()
 {

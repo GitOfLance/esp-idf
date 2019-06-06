@@ -133,11 +133,11 @@ struct spi_transaction_t {
     void *user;                     ///< User-defined variable. Can be used to store eg transaction ID.
     union {
         const void *tx_buffer;      ///< Pointer to transmit buffer, or NULL for no MOSI phase
-        uint8_t tx_data[4];         ///< If SPI_USE_TXDATA is set, data set here is sent directly from this variable.
+        uint8_t tx_data[4];         ///< If SPI_TRANS_USE_TXDATA is set, data set here is sent directly from this variable.
     };
     union {
         void *rx_buffer;            ///< Pointer to receive buffer, or NULL for no MISO phase. Written by 4 bytes-unit if DMA is used.
-        uint8_t rx_data[4];         ///< If SPI_USE_RXDATA is set, data is received directly to this variable
+        uint8_t rx_data[4];         ///< If SPI_TRANS_USE_RXDATA is set, data is received directly to this variable
     };
 } ;        //the rx data should start from a 32-bit aligned address to get around dma issue.
 
@@ -380,9 +380,23 @@ void spi_device_release_bus(spi_device_handle_t dev);
  * @param hz Desired working frequency
  * @param duty_cycle Duty cycle of the spi clock
  * @param reg_o Output of value to be set in clock register, or NULL if not needed.
+ *
+ * @deprecated The app shouldn't care about the register. Call ``spi_get_actual_clock`` instead.
+ *
  * @return Actual working frequency that most fit.
  */
-int spi_cal_clock(int fapb, int hz, int duty_cycle, uint32_t* reg_o);
+int spi_cal_clock(int fapb, int hz, int duty_cycle, uint32_t* reg_o) __attribute__((deprecated));
+
+/**
+ * @brief Calculate the working frequency that is most close to desired frequency.
+ *
+ * @param fapb The frequency of apb clock, should be ``APB_CLK_FREQ``.
+ * @param hz Desired working frequency
+ * @param duty_cycle Duty cycle of the spi clock
+ *
+ * @return Actual working frequency that most fit.
+ */
+int spi_get_actual_clock(int fapb, int hz, int duty_cycle);
 
 /**
   * @brief Calculate the timing settings of specified frequency and settings.

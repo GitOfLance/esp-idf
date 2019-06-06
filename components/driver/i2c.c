@@ -15,7 +15,7 @@
 #include <stdio.h>
 #include "esp_types.h"
 #include "esp_attr.h"
-#include "esp_intr.h"
+#include "esp_intr_alloc.h"
 #include "esp_log.h"
 #include "malloc.h"
 #include "freertos/FreeRTOS.h"
@@ -23,13 +23,12 @@
 #include "freertos/xtensa_api.h"
 #include "freertos/task.h"
 #include "freertos/ringbuf.h"
-#include "soc/dport_reg.h"
-#include "soc/i2c_struct.h"
-#include "soc/i2c_reg.h"
+#include "soc/i2c_periph.h"
 #include "driver/i2c.h"
 #include "driver/gpio.h"
 #include "driver/periph_ctrl.h"
 #include "esp_pm.h"
+#include "soc/soc_memory_layout.h"
 
 static const char* I2C_TAG = "i2c";
 #define I2C_CHECK(a, str, ret)  if(!(a)) {                                             \

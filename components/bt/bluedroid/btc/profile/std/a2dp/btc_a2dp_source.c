@@ -495,10 +495,11 @@ static UINT64 time_now_us()
 static void log_tstamps_us(char *comment)
 {
     static UINT64 prev_us = 0;
-    const UINT64 now_us = time_now_us();
+    UINT64 now_us = time_now_us();
     APPL_TRACE_DEBUG("[%s] ts %08llu, diff : %08llu, queue sz %d", comment, now_us, now_us - prev_us,
                      fixed_queue_length(btc_aa_src_cb.TxAaQ));
     prev_us = now_us;
+    UNUSED(prev_us);
 }
 
 /* when true media task discards any tx frames */
@@ -819,7 +820,7 @@ static void btc_a2dp_source_enc_init(BT_HDR *p_msg)
     btc_aa_src_cb.timestamp = 0;
 
     /* SBC encoder config (enforced even if not used) */
-
+    btc_sbc_encoder.sbc_mode = SBC_MODE_STD;
     btc_sbc_encoder.s16ChannelMode = pInitAudio->ChannelMode;
     btc_sbc_encoder.s16NumOfSubBands = pInitAudio->NumOfSubBands;
     btc_sbc_encoder.s16NumOfBlocks = pInitAudio->NumOfBlocks;
@@ -878,7 +879,6 @@ static void btc_a2dp_source_enc_update(BT_HDR *p_msg)
                                       BTC_MEDIA_AA_SBC_OFFSET - sizeof(BT_HDR))
                                      < pUpdateAudio->MinMtuSize) ? (BTC_MEDIA_AA_BUF_SIZE - BTC_MEDIA_AA_SBC_OFFSET
                                              - sizeof(BT_HDR)) : pUpdateAudio->MinMtuSize;
-
         /* Set the initial target bit rate */
         pstrEncParams->u16BitRate = btc_a2dp_source_get_sbc_rate();
 
@@ -1155,10 +1155,16 @@ static UINT8 btc_get_num_aa_frame(void)
 
         /* calculate nbr of frames pending for this media tick */
         result = btc_aa_src_cb.media_feeding_state.pcm.counter / pcm_bytes_per_frame;
-        if (result > MAX_PCM_FRAME_NUM_PER_TICK) {
-            APPL_TRACE_WARNING("%s() - Limiting frames to be sent from %d to %d"
-                               , __FUNCTION__, result, MAX_PCM_FRAME_NUM_PER_TICK);
-            result = MAX_PCM_FRAME_NUM_PER_TICK;
+
+        /* limit the frames to be sent */
+        UINT32 frm_nb_threshold = MAX_OUTPUT_A2DP_SRC_FRAME_QUEUE_SZ - fixed_queue_length(btc_aa_src_cb.TxAaQ);
+        if (frm_nb_threshold > MAX_PCM_FRAME_NUM_PER_TICK) {
+            frm_nb_threshold = MAX_PCM_FRAME_NUM_PER_TICK;
+        }
+
+        if (result > frm_nb_threshold) {
+            APPL_TRACE_EVENT("Limit frms to send from %d to %d", result, frm_nb_threshold);
+            result = frm_nb_threshold;
         }
         btc_aa_src_cb.media_feeding_state.pcm.counter -= result * pcm_bytes_per_frame;
 
@@ -1374,8 +1380,7 @@ static void btc_media_aa_prep_sbc_2_send(UINT8 nb_frame)
             if (btc_media_aa_read_feeding()) {
                 /* SBC encode and descramble frame */
                 SBC_Encoder(&(btc_sbc_encoder));
-                A2D_SbcChkFrInit(btc_sbc_encoder.pu8Packet);
-                A2D_SbcDescramble(btc_sbc_encoder.pu8Packet, btc_sbc_encoder.u16PacketLength);
+
                 /* Update SBC frame length */
                 p_buf->len += btc_sbc_encoder.u16PacketLength;
                 nb_frame--;

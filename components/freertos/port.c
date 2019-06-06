@@ -103,7 +103,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
-#include "esp_panic.h"
+#include "esp_debug_helpers.h"
 #include "esp_heap_caps.h"
 #include "esp_private/crosscore_int.h"
 
@@ -435,7 +435,7 @@ void vPortSetStackWatchpoint( void* pxStackStart ) {
 	esp_set_watchpoint(1, (char*)addr, 32, ESP_WATCHPOINT_STORE);
 }
 
-#if defined(CONFIG_SPIRAM_SUPPORT)
+#if defined(CONFIG_ESP32_SPIRAM_SUPPORT)
 /*
  * Compare & set (S32C1) does not work in external RAM. Instead, this routine uses a mux (in internal memory) to fake it.
  */
@@ -446,7 +446,7 @@ void uxPortCompareSetExtram(volatile uint32_t *addr, uint32_t compare, uint32_t 
 #ifdef CONFIG_FREERTOS_PORTMUX_DEBUG
 	vPortCPUAcquireMutexIntsDisabled(&extram_mux, portMUX_NO_TIMEOUT, __FUNCTION__, __LINE__);
 #else
-	vPortCPUAcquireMutexIntsDisabled(&extram_mux, portMUX_NO_TIMEOUT); 
+	vPortCPUAcquireMutexIntsDisabled(&extram_mux, portMUX_NO_TIMEOUT);
 #endif
 	prev=*addr;
 	if (prev==compare) {
@@ -459,7 +459,7 @@ void uxPortCompareSetExtram(volatile uint32_t *addr, uint32_t compare, uint32_t 
 	vPortCPUReleaseMutexIntsDisabled(&extram_mux);
 #endif
 }
-#endif //defined(CONFIG_SPIRAM_SUPPORT)
+#endif //defined(CONFIG_ESP32_SPIRAM_SUPPORT)
 
 
 

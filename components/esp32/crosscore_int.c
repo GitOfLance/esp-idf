@@ -16,7 +16,6 @@
 
 #include "esp_attr.h"
 #include "esp_err.h"
-#include "esp_intr.h"
 #include "esp_intr_alloc.h"
 
 #include "esp32/rom/ets_sys.h"
@@ -24,8 +23,8 @@
 
 #include "soc/cpu.h"
 #include "soc/dport_reg.h"
-#include "soc/io_mux_reg.h"
-#include "soc/rtc_cntl_reg.h"
+#include "soc/gpio_periph.h"
+#include "soc/rtc_periph.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -96,9 +95,9 @@ void esp_crosscore_int_init() {
 static void IRAM_ATTR esp_crosscore_int_send(int core_id, uint32_t reason_mask) {
     assert(core_id<portNUM_PROCESSORS);
     //Mark the reason we interrupt the other CPU
-    portENTER_CRITICAL(&reason_spinlock);
+    portENTER_CRITICAL_ISR(&reason_spinlock);
     reason[core_id] |= reason_mask;
-    portEXIT_CRITICAL(&reason_spinlock);
+    portEXIT_CRITICAL_ISR(&reason_spinlock);
     //Poke the other CPU.
     if (core_id==0) {
         DPORT_WRITE_PERI_REG(DPORT_CPU_INTR_FROM_CPU_0_REG, DPORT_CPU_INTR_FROM_CPU_0);

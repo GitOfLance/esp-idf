@@ -33,13 +33,12 @@
 #include "soc/cpu.h"
 #include "soc/rtc.h"
 #include "soc/dport_reg.h"
-#include "soc/io_mux_reg.h"
-#include "soc/efuse_reg.h"
-#include "soc/rtc_cntl_reg.h"
-#include "soc/timer_group_reg.h"
-#include "soc/gpio_reg.h"
-#include "soc/gpio_sig_map.h"
+#include "soc/gpio_periph.h"
+#include "soc/efuse_periph.h"
+#include "soc/rtc_periph.h"
+#include "soc/timer_periph.h"
 #include "soc/rtc_wdt.h"
+#include "soc/spi_periph.h"
 
 #include "sdkconfig.h"
 #include "esp_image_format.h"
@@ -50,6 +49,7 @@
 #include "bootloader_random.h"
 #include "bootloader_config.h"
 #include "bootloader_clock.h"
+#include "bootloader_common.h"
 
 #include "flash_qio_mode.h"
 
@@ -63,7 +63,6 @@ static const char* TAG = "boot";
 static esp_err_t bootloader_main();
 static void print_flash_info(const esp_image_header_t* pfhdr);
 static void update_flash_config(const esp_image_header_t* pfhdr);
-static void vddsdio_configure();
 static void flash_gpio_configure(const esp_image_header_t* pfhdr);
 static void uart_console_configure(void);
 static void wdt_reset_check(void);
@@ -119,7 +118,7 @@ esp_err_t bootloader_init()
 
 static esp_err_t bootloader_main()
 {
-    vddsdio_configure();
+    bootloader_common_vddsdio_configure();
     /* Read and keep flash ID, for further use. */
     g_rom_flashchip.device_id = bootloader_read_flash_id();
     esp_image_header_t fhdr;
@@ -174,7 +173,7 @@ static esp_err_t bootloader_main()
     ESP_LOGI(TAG, "Enabling RNG early entropy source...");
     bootloader_random_enable();
 
-#if CONFIG_FLASHMODE_QIO || CONFIG_FLASHMODE_QOUT
+#if CONFIG_ESPTOOLPY_FLASHMODE_QIO || CONFIG_ESPTOOLPY_FLASHMODE_QOUT
     bootloader_enable_qio_mode();
 #endif
 
@@ -285,21 +284,6 @@ static void print_flash_info(const esp_image_header_t* phdr)
     }
     ESP_LOGI(TAG, "SPI Flash Size : %s", str );
 #endif
-}
-
-static void vddsdio_configure()
-{
-#if CONFIG_BOOTLOADER_VDDSDIO_BOOST_1_9V
-    rtc_vddsdio_config_t cfg = rtc_vddsdio_get_config();
-    if (cfg.enable == 1 && cfg.tieh == RTC_VDDSDIO_TIEH_1_8V) {    // VDDSDIO regulator is enabled @ 1.8V
-        cfg.drefh = 3;
-        cfg.drefm = 3;
-        cfg.drefl = 3;
-        cfg.force = 1;
-        rtc_vddsdio_set_config(cfg);
-        ets_delay_us(10); // wait for regulator to become stable
-    }
-#endif // CONFIG_BOOTLOADER_VDDSDIO_BOOST
 }
 
 #define FLASH_CLK_IO      6
@@ -413,11 +397,11 @@ static void IRAM_ATTR flash_gpio_configure(const esp_image_header_t* pfhdr)
 
 static void uart_console_configure(void)
 {
-#if CONFIG_CONSOLE_UART_NONE
+#if CONFIG_ESP_CONSOLE_UART_NONE
     ets_install_putc1(NULL);
     ets_install_putc2(NULL);
-#else // CONFIG_CONSOLE_UART_NONE
-    const int uart_num = CONFIG_CONSOLE_UART_NUM;
+#else // CONFIG_ESP_CONSOLE_UART_NONE
+    const int uart_num = CONFIG_ESP_CONSOLE_UART_NUM;
 
     uartAttach();
     ets_install_uart_printf();
@@ -425,10 +409,10 @@ static void uart_console_configure(void)
     // Wait for UART FIFO to be empty.
     uart_tx_wait_idle(0);
 
-#if CONFIG_CONSOLE_UART_CUSTOM
+#if CONFIG_ESP_CONSOLE_UART_CUSTOM
     // Some constants to make the following code less upper-case
-    const int uart_tx_gpio = CONFIG_CONSOLE_UART_TX_GPIO;
-    const int uart_rx_gpio = CONFIG_CONSOLE_UART_RX_GPIO;
+    const int uart_tx_gpio = CONFIG_ESP_CONSOLE_UART_TX_GPIO;
+    const int uart_rx_gpio = CONFIG_ESP_CONSOLE_UART_RX_GPIO;
     // Switch to the new UART (this just changes UART number used for
     // ets_printf in ROM code).
     uart_tx_switch(uart_num);
@@ -442,18 +426,26 @@ static void uart_console_configure(void)
         // (arrays should be optimized away by the compiler)
         const uint32_t tx_idx_list[3] = { U0TXD_OUT_IDX, U1TXD_OUT_IDX, U2TXD_OUT_IDX };
         const uint32_t rx_idx_list[3] = { U0RXD_IN_IDX, U1RXD_IN_IDX, U2RXD_IN_IDX };
+        const uint32_t uart_reset[3] = { DPORT_UART_RST, DPORT_UART1_RST, DPORT_UART2_RST };
         const uint32_t tx_idx = tx_idx_list[uart_num];
         const uint32_t rx_idx = rx_idx_list[uart_num];
+
+        PIN_INPUT_ENABLE(GPIO_PIN_MUX_REG[uart_rx_gpio]);
+        gpio_pad_pullup(uart_rx_gpio);
+
         gpio_matrix_out(uart_tx_gpio, tx_idx, 0, 0);
         gpio_matrix_in(uart_rx_gpio, rx_idx, 0);
+
+        DPORT_SET_PERI_REG_MASK(DPORT_PERIP_RST_EN_REG, uart_reset[uart_num]);
+        DPORT_CLEAR_PERI_REG_MASK(DPORT_PERIP_RST_EN_REG, uart_reset[uart_num]);
     }
-#endif // CONFIG_CONSOLE_UART_CUSTOM
+#endif // CONFIG_ESP_CONSOLE_UART_CUSTOM
 
     // Set configured UART console baud rate
-    const int uart_baud = CONFIG_CONSOLE_UART_BAUDRATE;
+    const int uart_baud = CONFIG_ESP_CONSOLE_UART_BAUDRATE;
     uart_div_modify(uart_num, (rtc_clk_apb_freq_get() << 4) / uart_baud);
 
-#endif // CONFIG_CONSOLE_UART_NONE
+#endif // CONFIG_ESP_CONSOLE_UART_NONE
 }
 
 static void wdt_reset_cpu0_info_enable(void)

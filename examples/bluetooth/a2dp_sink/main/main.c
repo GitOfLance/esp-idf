@@ -53,7 +53,7 @@ void app_main()
     ESP_ERROR_CHECK(err);
 
     i2s_config_t i2s_config = {
-#ifdef CONFIG_A2DP_SINK_OUTPUT_INTERNAL_DAC
+#ifdef CONFIG_EXAMPLE_A2DP_SINK_OUTPUT_INTERNAL_DAC
         .mode = I2S_MODE_MASTER | I2S_MODE_TX | I2S_MODE_DAC_BUILT_IN,
 #else
         .mode = I2S_MODE_MASTER | I2S_MODE_TX,                                  // Only TX
@@ -70,14 +70,14 @@ void app_main()
 
 
     i2s_driver_install(0, &i2s_config, 0, NULL);
-#ifdef CONFIG_A2DP_SINK_OUTPUT_INTERNAL_DAC
+#ifdef CONFIG_EXAMPLE_A2DP_SINK_OUTPUT_INTERNAL_DAC
     i2s_set_dac_mode(I2S_DAC_CHANNEL_BOTH_EN);
     i2s_set_pin(0, NULL);
 #else
     i2s_pin_config_t pin_config = {
-        .bck_io_num = CONFIG_I2S_BCK_PIN,
-        .ws_io_num = CONFIG_I2S_LRCK_PIN,
-        .data_out_num = CONFIG_I2S_DATA_PIN,
+        .bck_io_num = CONFIG_EXAMPLE_I2S_BCK_PIN,
+        .ws_io_num = CONFIG_EXAMPLE_I2S_LRCK_PIN,
+        .data_out_num = CONFIG_EXAMPLE_I2S_DATA_PIN,
         .data_in_num = -1                                                       //Not used
     };
 
@@ -132,6 +132,7 @@ void app_main()
     pin_code[2] = '3';
     pin_code[3] = '4';
     esp_bt_gap_set_pin(pin_type, 4, pin_code);
+
 }
 
 void bt_app_gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param)
@@ -177,14 +178,22 @@ static void bt_av_hdl_stack_evt(uint16_t event, void *p_param)
         esp_bt_dev_set_device_name(dev_name);
 
         esp_bt_gap_register_callback(bt_app_gap_cb);
-        /* initialize A2DP sink */
-        esp_a2d_register_callback(&bt_app_a2d_cb);
-        esp_a2d_sink_register_data_callback(bt_app_a2d_data_cb);
-        esp_a2d_sink_init();
 
         /* initialize AVRCP controller */
         esp_avrc_ct_init();
         esp_avrc_ct_register_callback(bt_app_rc_ct_cb);
+        /* initialize AVRCP target */
+        assert (esp_avrc_tg_init() == ESP_OK);
+        esp_avrc_tg_register_callback(bt_app_rc_tg_cb);
+
+        esp_avrc_rn_evt_cap_mask_t evt_set = {0};
+        esp_avrc_rn_evt_bit_mask_operation(ESP_AVRC_BIT_MASK_OP_SET, &evt_set, ESP_AVRC_RN_VOLUME_CHANGE);
+        assert(esp_avrc_tg_set_rn_evt_cap(&evt_set) == ESP_OK);
+
+        /* initialize A2DP sink */
+        esp_a2d_register_callback(&bt_app_a2d_cb);
+        esp_a2d_sink_register_data_callback(bt_app_a2d_data_cb);
+        esp_a2d_sink_init();
 
         /* set discoverable and connectable mode, wait to be connected */
         esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE);

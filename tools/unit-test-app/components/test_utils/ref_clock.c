@@ -31,14 +31,12 @@
  */
 
 #include "test_utils.h"
-#include "soc/rmt_struct.h"
-#include "soc/pcnt_struct.h"
-#include "soc/pcnt_reg.h"
-#include "soc/gpio_sig_map.h"
+#include "soc/rmt_periph.h"
+#include "soc/pcnt_periph.h"
+#include "soc/gpio_periph.h"
 #include "soc/dport_reg.h"
 #include "esp32/rom/gpio.h"
 #include "esp32/rom/ets_sys.h"
-#include "driver/gpio.h"
 #include "esp_intr_alloc.h"
 #include "freertos/FreeRTOS.h"
 #include "driver/periph_ctrl.h"
@@ -130,10 +128,10 @@ void ref_clock_init()
 
 static void IRAM_ATTR pcnt_isr(void* arg)
 {
-    portENTER_CRITICAL(&s_lock);
+    portENTER_CRITICAL_ISR(&s_lock);
     PCNT.int_clr.val = BIT(REF_CLOCK_PCNT_UNIT);
     s_milliseconds += REF_CLOCK_PRESCALER_MS;
-    portEXIT_CRITICAL(&s_lock);
+    portEXIT_CRITICAL_ISR(&s_lock);
 }
 
 void ref_clock_deinit()

@@ -26,6 +26,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
+#include "soc/soc_memory_layout.h"
 
 #include "pthread_internal.h"
 #include "esp_pthread.h"
@@ -460,7 +461,8 @@ void pthread_exit(void *value_ptr)
         vTaskSuspend(NULL);
     }
 
-    ESP_LOGV(TAG, "%s EXIT", __FUNCTION__);
+    // Should never be reached
+    abort();
 }
 
 int pthread_cancel(pthread_t thread)
@@ -502,13 +504,13 @@ int pthread_once(pthread_once_t *once_control, void (*init_routine)(void))
     }
 
     uint32_t res = 1;
-#if defined(CONFIG_SPIRAM_SUPPORT)
+#if defined(CONFIG_ESP32_SPIRAM_SUPPORT)
     if (esp_ptr_external_ram(once_control)) {
         uxPortCompareSetExtram((uint32_t *) &once_control->init_executed, 0, &res);
     } else {
 #endif
         uxPortCompareSet((uint32_t *) &once_control->init_executed, 0, &res);
-#if defined(CONFIG_SPIRAM_SUPPORT)
+#if defined(CONFIG_ESP32_SPIRAM_SUPPORT)
     }
 #endif
     // Check if compare and set was successful

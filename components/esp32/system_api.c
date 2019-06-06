@@ -17,18 +17,17 @@
 #include "esp_system.h"
 #include "esp_attr.h"
 #include "esp_wifi.h"
-#include "esp_wifi_internal.h"
+#include "esp_private/wifi.h"
 #include "esp_log.h"
 #include "sdkconfig.h"
 #include "esp32/rom/efuse.h"
 #include "esp32/rom/cache.h"
 #include "esp32/rom/uart.h"
 #include "soc/dport_reg.h"
-#include "soc/gpio_reg.h"
-#include "soc/efuse_reg.h"
-#include "soc/rtc_cntl_reg.h"
-#include "soc/timer_group_reg.h"
-#include "soc/timer_group_struct.h"
+#include "soc/gpio_periph.h"
+#include "soc/efuse_periph.h"
+#include "soc/rtc_periph.h"
+#include "soc/timer_periph.h"
 #include "soc/cpu.h"
 #include "soc/rtc.h"
 #include "soc/rtc_wdt.h"
@@ -211,14 +210,26 @@ esp_err_t esp_read_mac(uint8_t* mac, esp_mac_type_t type)
 
 esp_err_t esp_register_shutdown_handler(shutdown_handler_t handler)
 {
-     int i;
-     for (i = 0; i < SHUTDOWN_HANDLERS_NO; i++) {
-	  if (shutdown_handlers[i] == NULL) {
-	       shutdown_handlers[i] = handler;
-	       return ESP_OK;
-	  }
-     }
-     return ESP_FAIL;
+    for (int i = 0; i < SHUTDOWN_HANDLERS_NO; i++) {
+        if (shutdown_handlers[i] == handler) {
+            return ESP_ERR_INVALID_STATE;
+        } else if (shutdown_handlers[i] == NULL) {
+            shutdown_handlers[i] = handler;
+            return ESP_OK;
+        }
+    }
+    return ESP_ERR_NO_MEM;
+}
+
+esp_err_t esp_unregister_shutdown_handler(shutdown_handler_t handler)
+{
+    for (int i = 0; i < SHUTDOWN_HANDLERS_NO; i++) {
+        if (shutdown_handlers[i] == handler) {
+            shutdown_handlers[i] = NULL;
+            return ESP_OK;
+        }
+    }
+    return ESP_ERR_INVALID_STATE;
 }
 
 void esp_restart_noos() __attribute__ ((noreturn));
@@ -305,7 +316,7 @@ void IRAM_ATTR esp_restart_noos()
 
     // Reset timer/spi/uart
     DPORT_SET_PERI_REG_MASK(DPORT_PERIP_RST_EN_REG,
-            DPORT_TIMERS_RST | DPORT_SPI01_RST | DPORT_UART_RST);
+            DPORT_TIMERS_RST | DPORT_SPI01_RST | DPORT_UART_RST | DPORT_UART1_RST | DPORT_UART2_RST);
     DPORT_REG_WRITE(DPORT_PERIP_RST_EN_REG, 0);
 
     // Set CPU back to XTAL source, no PLL, same as hard reset

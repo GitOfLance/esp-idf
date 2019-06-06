@@ -24,8 +24,11 @@ set(COMPONENT_REQUIRES lwip)
 
 register_component()
 
+# Silence format truncation warning, until it is fixed upstream
+set_source_files_properties(libcoap/src/coap_debug.c PROPERTIES COMPILE_FLAGS -Wno-format-truncation)
+
 # Needed for coap headers in public builds, also.
 #
 # TODO: find a way to move this to a port header
-target_compile_definitions(${COMPONENT_TARGET} PUBLIC WITH_POSIX)
+target_compile_definitions(${COMPONENT_LIB} PUBLIC WITH_POSIX)
 

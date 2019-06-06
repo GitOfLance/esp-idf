@@ -91,12 +91,12 @@ The driver of FIFOs works as below:
 #include "esp_log.h"
 #include "esp_intr_alloc.h"
 #include "freertos/FreeRTOS.h"
-#include "soc/dport_access.h"
-#include "soc/dport_reg.h"
-#include "soc/io_mux_reg.h"
+#include "soc/soc_memory_layout.h"
+#include "soc/gpio_periph.h"
 #include "freertos/semphr.h"
 #include "xtensa/core-macros.h"
 #include "driver/periph_ctrl.h"
+#include "driver/gpio.h"
 
 
 #define SDIO_SLAVE_CHECK(res, str, ret_val) do { if(!(res)){\

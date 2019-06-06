@@ -19,12 +19,8 @@
 #include "esp32/rom/gpio.h"
 
 #include "soc/dport_reg.h"
-#include "soc/io_mux_reg.h"
-#include "soc/rtc_cntl_reg.h"
-#include "soc/gpio_reg.h"
-#include "soc/gpio_sig_map.h"
-#include "soc/emac_reg_v2.h"
-#include "soc/emac_ex_reg.h"
+#include "soc/rtc_periph.h"
+#include "soc/gpio_periph.h"
 
 #include "esp_log.h"
 #include "driver/gpio.h"
@@ -98,4 +94,14 @@ void emac_mac_init(void)
     REG_SET_BIT(EMAC_GMACCONFIG_REG, EMAC_EMACMII);
     REG_CLR_BIT(EMAC_GMACCONFIG_REG, EMAC_EMACFESPEED);
     REG_SET_BIT(EMAC_GMACFF_REG, EMAC_PAM);
+}
+
+void emac_enable_promiscuous(void)
+{
+    REG_SET_BIT(EMAC_GMACFF_REG, EMAC_PMODE);
+}
+
+void emac_disable_promiscuous(void)
+{
+    REG_CLR_BIT(EMAC_GMACFF_REG, EMAC_PMODE);
 }

@@ -22,18 +22,18 @@
 #include "freertos/task.h"
 #include "freertos/xtensa_api.h"
 
-#include "soc/uart_reg.h"
-#include "soc/io_mux_reg.h"
+#include "soc/uart_periph.h"
+#include "soc/gpio_periph.h"
 #include "soc/dport_reg.h"
-#include "soc/rtc_cntl_reg.h"
-#include "soc/timer_group_struct.h"
-#include "soc/timer_group_reg.h"
+#include "soc/rtc_periph.h"
+#include "soc/timer_periph.h"
 #include "soc/cpu.h"
 #include "soc/rtc.h"
 #include "soc/rtc_wdt.h"
 
 #include "esp_private/gdbstub.h"
-#include "esp_panic.h"
+#include "esp_debug_helpers.h"
+#include "esp_private/panic_reason.h"
 #include "esp_attr.h"
 #include "esp_err.h"
 #include "esp_core_dump.h"
@@ -66,8 +66,8 @@
 //printf may be broken, so we fix our own printing fns...
 static void panicPutChar(char c)
 {
-    while (((READ_PERI_REG(UART_STATUS_REG(CONFIG_CONSOLE_UART_NUM)) >> UART_TXFIFO_CNT_S)&UART_TXFIFO_CNT) >= 126) ;
-    WRITE_PERI_REG(UART_FIFO_REG(CONFIG_CONSOLE_UART_NUM), c);
+    while (((READ_PERI_REG(UART_STATUS_REG(CONFIG_ESP_CONSOLE_UART_NUM)) >> UART_TXFIFO_CNT_S)&UART_TXFIFO_CNT) >= 126) ;
+    WRITE_PERI_REG(UART_FIFO_REG(CONFIG_ESP_CONSOLE_UART_NUM), c);
 }
 
 static void panicPutStr(const char *c)
@@ -143,9 +143,9 @@ static __attribute__((noreturn)) inline void invoke_abort()
     abort_called = true;
 #if CONFIG_ESP32_APPTRACE_ENABLE
 #if CONFIG_SYSVIEW_ENABLE
-    SEGGER_RTT_ESP32_FlushNoLock(CONFIG_ESP32_APPTRACE_POSTMORTEM_FLUSH_TRAX_THRESH, APPTRACE_ONPANIC_HOST_FLUSH_TMO);
+    SEGGER_RTT_ESP32_FlushNoLock(CONFIG_ESP32_APPTRACE_POSTMORTEM_FLUSH_THRESH, APPTRACE_ONPANIC_HOST_FLUSH_TMO);
 #else
-    esp_apptrace_flush_nolock(ESP_APPTRACE_DEST_TRAX, CONFIG_ESP32_APPTRACE_POSTMORTEM_FLUSH_TRAX_THRESH,
+    esp_apptrace_flush_nolock(ESP_APPTRACE_DEST_TRAX, CONFIG_ESP32_APPTRACE_POSTMORTEM_FLUSH_THRESH,
                               APPTRACE_ONPANIC_HOST_FLUSH_TMO);
 #endif
 #endif
@@ -314,9 +314,9 @@ void panicHandler(XtExcFrame *frame)
         }
 #if CONFIG_ESP32_APPTRACE_ENABLE
 #if CONFIG_SYSVIEW_ENABLE
-        SEGGER_RTT_ESP32_FlushNoLock(CONFIG_ESP32_APPTRACE_POSTMORTEM_FLUSH_TRAX_THRESH, APPTRACE_ONPANIC_HOST_FLUSH_TMO);
+        SEGGER_RTT_ESP32_FlushNoLock(CONFIG_ESP32_APPTRACE_POSTMORTEM_FLUSH_THRESH, APPTRACE_ONPANIC_HOST_FLUSH_TMO);
 #else
-        esp_apptrace_flush_nolock(ESP_APPTRACE_DEST_TRAX, CONFIG_ESP32_APPTRACE_POSTMORTEM_FLUSH_TRAX_THRESH,
+        esp_apptrace_flush_nolock(ESP_APPTRACE_DEST_TRAX, CONFIG_ESP32_APPTRACE_POSTMORTEM_FLUSH_THRESH,
                                   APPTRACE_ONPANIC_HOST_FLUSH_TMO);
 #endif
 #endif
@@ -347,9 +347,9 @@ void xt_unhandled_exception(XtExcFrame *frame)
             panicPutStr(". Setting bp and returning..\r\n");
 #if CONFIG_ESP32_APPTRACE_ENABLE
 #if CONFIG_SYSVIEW_ENABLE
-            SEGGER_RTT_ESP32_FlushNoLock(CONFIG_ESP32_APPTRACE_POSTMORTEM_FLUSH_TRAX_THRESH, APPTRACE_ONPANIC_HOST_FLUSH_TMO);
+            SEGGER_RTT_ESP32_FlushNoLock(CONFIG_ESP32_APPTRACE_POSTMORTEM_FLUSH_THRESH, APPTRACE_ONPANIC_HOST_FLUSH_TMO);
 #else
-            esp_apptrace_flush_nolock(ESP_APPTRACE_DEST_TRAX, CONFIG_ESP32_APPTRACE_POSTMORTEM_FLUSH_TRAX_THRESH,
+            esp_apptrace_flush_nolock(ESP_APPTRACE_DEST_TRAX, CONFIG_ESP32_APPTRACE_POSTMORTEM_FLUSH_THRESH,
                                       APPTRACE_ONPANIC_HOST_FLUSH_TMO);
 #endif
 #endif
@@ -382,7 +382,7 @@ static void illegal_instruction_helper(XtExcFrame *frame)
     panicPutStr("Memory dump at 0x");
     panicPutHex(epc);
     panicPutStr(": ");
-    
+
     panicPutHex(*pepc);
     panicPutStr(" ");
     panicPutHex(*(pepc + 1));
@@ -433,7 +433,7 @@ static void esp_panic_dig_reset() __attribute__((noreturn));
 static void esp_panic_dig_reset()
 {
     // make sure all the panic handler output is sent from UART FIFO
-    uart_tx_wait_idle(CONFIG_CONSOLE_UART_NUM);
+    uart_tx_wait_idle(CONFIG_ESP_CONSOLE_UART_NUM);
     // switch to XTAL (otherwise we will keep running from the PLL)
     rtc_clk_cpu_freq_set_xtal();
     // reset the digital part
@@ -589,9 +589,9 @@ static __attribute__((noreturn)) void commonErrorHandler(XtExcFrame *frame)
 #if CONFIG_ESP32_APPTRACE_ENABLE
     disableAllWdts();
 #if CONFIG_SYSVIEW_ENABLE
-    SEGGER_RTT_ESP32_FlushNoLock(CONFIG_ESP32_APPTRACE_POSTMORTEM_FLUSH_TRAX_THRESH, APPTRACE_ONPANIC_HOST_FLUSH_TMO);
+    SEGGER_RTT_ESP32_FlushNoLock(CONFIG_ESP32_APPTRACE_POSTMORTEM_FLUSH_THRESH, APPTRACE_ONPANIC_HOST_FLUSH_TMO);
 #else
-    esp_apptrace_flush_nolock(ESP_APPTRACE_DEST_TRAX, CONFIG_ESP32_APPTRACE_POSTMORTEM_FLUSH_TRAX_THRESH,
+    esp_apptrace_flush_nolock(ESP_APPTRACE_DEST_TRAX, CONFIG_ESP32_APPTRACE_POSTMORTEM_FLUSH_THRESH,
                               APPTRACE_ONPANIC_HOST_FLUSH_TMO);
 #endif
     reconfigureAllWdts();

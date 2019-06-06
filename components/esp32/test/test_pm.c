@@ -13,9 +13,7 @@
 #include "driver/timer.h"
 #include "driver/rtc_io.h"
 #include "esp32/ulp.h"
-#include "soc/rtc_io_reg.h"
-#include "soc/rtc_cntl_reg.h"
-#include "soc/rtc_gpio_channel.h"
+#include "soc/rtc_periph.h"
 
 TEST_CASE("Can dump power management lock stats", "[pm]")
 {
@@ -122,7 +120,7 @@ TEST_CASE("Automatic light occurs when tasks are suspended", "[pm]")
 
 TEST_CASE("Can wake up from automatic light sleep by GPIO", "[pm]")
 {
-    assert(CONFIG_ULP_COPROC_RESERVE_MEM >= 16 && "this test needs ULP_COPROC_RESERVE_MEM option set in menuconfig");
+    assert(CONFIG_ESP32_ULP_COPROC_RESERVE_MEM >= 16 && "this test needs ESP32_ULP_COPROC_RESERVE_MEM option set in menuconfig");
 
     /* Set up GPIO used to wake up RTC */
     const int ext1_wakeup_gpio = 25;
